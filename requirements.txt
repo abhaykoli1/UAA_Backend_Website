@@ -1,0 +1,17 @@
+annotated-types
+anyio
+click
+colorama
+dnspython
+fastapi
+h11
+idna
+mongoengine
+pip
+pydantic
+pydantic_core
+pymongo
+sniffio
+starlette
+typing_extensions
+uvicorn

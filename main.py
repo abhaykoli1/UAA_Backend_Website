@@ -1,7 +1,10 @@
 from mongoengine import connect
 from fastapi import FastAPI
-
+import uvicorn
 from blogs.routes import blogroutes
+from homePageQuery.routes import homePageRoutes
+from query.routes import contactroutes
+from samplepapers.routes import sampleroutes
 from serive.routes import serviceroutes
 from fastapi.middleware.cors import CORSMiddleware
 
@@ -17,6 +20,16 @@ app.add_middleware(
 )
 
 
+
+
 app.include_router(serviceroutes.router, tags=['service'])
 app.include_router(blogroutes.router, tags=["Blog routes"])
 app.include_router(useroutes.router, tags=["user routes"])
+app.include_router(sampleroutes.router, tags=["Sample"])
+app.include_router(contactroutes.router, tags=["contact query"])
+app.include_router(homePageRoutes.router, tags=["Home page query"])
+
+
+
+if __name__ == "__main__":
+    uvicorn.run("main:app", host="127.0.0.1", port=8080, reload=True)
