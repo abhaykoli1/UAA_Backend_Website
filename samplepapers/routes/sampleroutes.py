@@ -11,36 +11,48 @@ from samplepapers.model.samplepaperModel import SamplePaperTable
 from boto3 import client
 
 
-router = APIRouter()
-
-SPACES_ACCESS_KEY = 'DO00AJFUXFALT4K6L69E'
+PACES_ACCESS_KEY = 'DO00AJFUXFALT4K6L69E'
 SPACES_SECRET_KEY = 'kn2jUm8ox9W6fPQXvJ6E5kBtVZtzF5V5MvY6sJ8Cr8U'
 SPACES_ENDPOINT_URL = 'https://blackwhite.blr1.digitaloceanspaces.com'
 SPACES_BUCKET_NAME = 'UAASITE'
 
-# S3 client
+# S3 client for DigitalOcean Spaces
 s3 = client('s3',
             region_name='blr1',
             endpoint_url=SPACES_ENDPOINT_URL,
-            aws_access_key_id=SPACES_ACCESS_KEY,
+            aws_access_key_id=PACES_ACCESS_KEY,
             aws_secret_access_key=SPACES_SECRET_KEY)
 
-def upload_file_to_space(file_content: bytes, filename: str):
-    random_filename = str(uuid.uuid4())
-    file_extension = os.path.splitext(filename)[1]
-    random_filename_with_extension = f"{random_filename}{file_extension}"
+router = APIRouter()
 
-    file_content_stream = io.BytesIO(file_content)
+# Function to upload file to DigitalOcean Spaces
+def upload_file_to_space(file_content: bytes, filename: str) -> str:
+    try:
+        # Generate a random filename with the original extension
+        random_filename = str(uuid.uuid4())
+        file_extension = os.path.splitext(filename)[1]
+        random_filename_with_extension = f"{random_filename}{file_extension}"
 
-    s3.upload_fileobj(
-        file_content_stream,
-        SPACES_BUCKET_NAME,
-        random_filename_with_extension,
-        ExtraArgs={'ACL': 'public-read'}
-    )
+        # Create a BytesIO stream
+        file_content_stream = io.BytesIO(file_content)
 
-    return f"{SPACES_ENDPOINT_URL}/{SPACES_BUCKET_NAME}/{random_filename_with_extension}"
+        # Upload the file without setting ContentLength
+        s3.upload_fileobj(
+            file_content_stream,
+            SPACES_BUCKET_NAME,
+            random_filename_with_extension,
+            ExtraArgs={
+                'ACL': 'public-read'
+            }
+        )
 
+        # Return the file's public URL
+        return f"{SPACES_ENDPOINT_URL}/{random_filename_with_extension}"
+
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error uploading file: {str(e)}")
+
+# FastAPI route to upload a sample
 @router.post("/api/v1/upload-sample")
 async def upload_sample(
     seo_title: str = Form(...),
@@ -64,7 +76,7 @@ async def upload_sample(
             image_url = upload_file_to_space(image_content, image.filename)
             file_images_urls.append(image_url)
 
-        # Save data to MongoDB
+        # Save data to MongoDB (Example: Ensure `SamplePaperTable` exists)
         sample_paper = SamplePaperTable(
             seo_title=seo_title,
             seo_description=seo_description,
@@ -77,12 +89,16 @@ async def upload_sample(
         )
         sample_paper.save()
 
-        return JSONResponse(content={"message": "Sample uploaded successfully", "data": sample_paper.to_json()}, status_code=201)
+        return JSONResponse(content={
+            "message": "Sample uploaded successfully",
+            "data": sample_paper.to_json()
+        }, status_code=201)
 
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
-
-
+        import traceback
+        traceback.print_exc()  # Log the stack trace for debugging
+        raise HTTPException(status_code=500, detail=f"Error: {str(e)}")
+    
 @router.get("/api/v1/all-sample")
 async def getAllSample():
     allSample = []
