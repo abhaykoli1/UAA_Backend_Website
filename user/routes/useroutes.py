@@ -26,6 +26,15 @@ async def userCreate(body: UserCreateModel):
             "status": 201
         }
         
+@router.get("/api/v1/get-all-users")
+async def getAllUsers():
+    findata = UserTable.objects.all()
+    return {
+        "message": "all Users",
+        "data": json.loads(findata.to_json()),
+        "status": 200
+    }   
+        
 @router.post("/api/v1/user-login")
 async def userLogin(body: UserLoginModel):
     findata = UserTable.objects(email=body.email).first()

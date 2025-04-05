@@ -7,7 +7,7 @@ import uuid
 from fastapi import APIRouter, File, Form, HTTPException, UploadFile
 from fastapi.responses import JSONResponse
 
-from samplepapers.model.samplepaperModel import SamplePaperTable
+from samplepapers.model.samplepaperModel import SamplePaperTable, SampleBodyModel
 from boto3 import client
 
 
@@ -47,45 +47,24 @@ def upload_file_to_space(file_content: bytes, filename: str) -> str:
         )
 
         # Return the file's public URL
-        return f"{SPACES_ENDPOINT_URL}/{random_filename_with_extension}"
+        return f"{SPACES_ENDPOINT_URL}/UAASITE/{random_filename_with_extension}"
 
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error uploading file: {str(e)}")
+    
+
+
 
 # FastAPI route to upload a sample
 @router.post("/api/v1/upload-sample")
 async def upload_sample(
-    seo_title: str = Form(...),
-    seo_description: str = Form(...),
-    pageCount: int = Form(...),
-    moduleName: str = Form(...),
-    wordcount: int = Form(...),
-    description: str = Form(...),
-    file: UploadFile = File(...),
-    fileimages: List[UploadFile] = File(...)
+    body: SampleBodyModel
 ):
     try:
         # Upload main file to Spaces
-        file_content = await file.read()
-        file_url = upload_file_to_space(file_content, file.filename)
-
-        # Upload images to Spaces
-        file_images_urls = []
-        for image in fileimages:
-            image_content = await image.read()
-            image_url = upload_file_to_space(image_content, image.filename)
-            file_images_urls.append(image_url)
-
         # Save data to MongoDB (Example: Ensure `SamplePaperTable` exists)
         sample_paper = SamplePaperTable(
-            seo_title=seo_title,
-            seo_description=seo_description,
-            fileimages=file_images_urls,
-            pageCount=pageCount,
-            moduleName=moduleName,
-            wordcount=wordcount,
-            description=description,
-            file=file_url
+            **body.dict()
         )
         sample_paper.save()
 
@@ -98,7 +77,36 @@ async def upload_sample(
         import traceback
         traceback.print_exc()  # Log the stack trace for debugging
         raise HTTPException(status_code=500, detail=f"Error: {str(e)}")
-    
+
+@router.put("/api/v1/update-sample/{seo_title}")
+async def update_sample(seo_title: str, body: SampleBodyModel):
+    try:
+        # Find the document by seo_title
+        sample_paper = SamplePaperTable.objects(seo_title=seo_title).first()
+        
+        if not sample_paper:
+            raise HTTPException(status_code=404, detail="Sample paper not found")
+
+        sample_paper.update(
+            seo_title=body.seo_title,
+            seo_description=body.seo_description,
+            fileimages=body.fileimages,
+            pageCount=body.pageCount,
+            moduleName=body.moduleName,
+            wordcount=body.wordcount,
+            description=body.description,
+            file=body.file
+        )
+        return {
+            "message": "Sample paper updated successfully",
+            "data": sample_paper.to_json()
+        }
+
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
+        raise HTTPException(status_code=500, detail=f"Error: {str(e)}")
+
 @router.get("/api/v1/all-sample")
 async def getAllSample():
     allSample = []
@@ -113,7 +121,7 @@ async def getAllSample():
         "data":allSample,
         "status":200
     }
-
+    
 
 @router.get("/api/v1/search/sample/{query}")
 async def searchSAmple(query: str):
@@ -133,3 +141,40 @@ async def getSamplePerticuler(title: str):
         "data": json.loads(findata.to_json()),
         "status": 200
     }
+ 
+   
+@router.delete("/api/v1/delete-sample/{sampleTitle}")
+async def delete_sample(sampleTitle: str): 
+    query = sampleTitle.replace("-", " ")
+    
+    # Find the sample
+    findata = SamplePaperTable.objects.filter(seo_title=query).first()
+    
+    if not findata:
+        raise HTTPException(status_code=404, detail="Sample not found")
+    
+    # Delete the sample
+    findata.delete()
+    
+    return {
+        "message": "Sample deleted successfully",
+        "status": 200
+    }
+
+
+@router.post("/api/v1/upload-image")
+async def upload_image(file: UploadFile = File(...)):
+    try:
+        # Read file content
+        file_content = await file.read()
+
+        # Upload to DigitalOcean Spaces
+        file_url = upload_file_to_space(file_content, file.filename)
+
+        return {"message": "File uploaded successfully", "file_url": file_url}
+
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"File upload failed: {str(e)}")
+    
+
+

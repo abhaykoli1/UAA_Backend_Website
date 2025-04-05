@@ -9,7 +9,6 @@ class ServiceTable(Document):
     seo_title = StringField(required=True)
     seo_description=StringField(required=True)
     description = StringField(required=True)
-
     cr_date = StringField(required=True)
 class ServiceSchema(BaseModel):
     title:str

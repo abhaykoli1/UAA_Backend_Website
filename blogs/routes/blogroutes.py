@@ -1,4 +1,5 @@
 from datetime import date
+from http.client import HTTPException
 import json
 from fastapi import APIRouter
 
@@ -48,6 +49,38 @@ async def getAllblog():
     }
 
 
+@router.put("/api/v1/update-blog/{seo_title}")
+async def update_blog(seo_title: str, body: BlogSchema):
+    query = seo_title.replace("-", " ")
+    try:
+        # Find the blog by seo_title
+        blog = BlogsTable.objects(seo_title=query).first()
+        
+        if not blog:
+            raise HTTPException(status_code=404, detail="Blog not found")
+
+        # Update the fields with new data
+        blog.update(
+            title=body.title,
+            shortDec=body.shortDec,
+            bannerImg=body.bannerImg,
+            seo_title=body.seo_title,
+            seo_description=body.seo_description,
+            service_category=body.service_category,
+            description=body.description
+        )
+
+        return {
+            "message": "Blog updated successfully",
+            "data": json.loads(blog.to_json())
+        }
+
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
+        raise HTTPException(status_code=500, detail=f"Error: {str(e)}")
+
+
 @router.get("/api/v1/get-blog/{blogTitle}")
 async def getService(blogTitle: str):
     query = blogTitle.replace("-", " ")
@@ -57,6 +90,24 @@ async def getService(blogTitle: str):
     return {
         "message": "Blog data",
         "data": fromjson,
+        "status": 200
+    }
+    
+@router.delete("/api/v1/delete-blog/{blogTitle}")
+async def delete_blog(blogTitle: str):
+    query = blogTitle.replace("-", " ")
+    
+    # Find the blog
+    findata = BlogsTable.objects.filter(seo_title=query).first()
+    
+    if not findata:
+        raise HTTPException(status_code=404, detail="blog not found")
+    
+    # Delete the blog
+    findata.delete()
+    
+    return {
+        "message": "Blog deleted successfully",
         "status": 200
     }
     
